@@ -9,7 +9,7 @@ const {
   createOrder,
   updateOrderStatus,
   getOrdersCount
-} = require('../controllers/orderController');
+} = require('../controllers/order_controller');
 
 // All routes are protected
 router.use(protect);

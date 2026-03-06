@@ -10,7 +10,7 @@ const categoryRoutes = require('./routes/category_routes');
 const productRoutes = require('./routes/product_Routes');
 const stockRoutes = require('./routes/stock_routes');
 const supplierRoutes = require('./routes/supplier_routes');
-const dashboardRoutes = require('./routes/dashboardRoutes');
+const dashboardRoutes = require('./routes/dashboard_routes');
 const orderRoutes = require('./routes/order_routes');
 const staffRoutes = require('./routes/staff_routes');
 
