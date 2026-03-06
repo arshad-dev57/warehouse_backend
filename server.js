@@ -7,7 +7,7 @@ dotenv.config();
 
 const authRoutes = require('./routes/auth_routes');
 const categoryRoutes = require('./routes/category_routes');
-const productRoutes = require('./routes/product_Routes');
+const productRoutes = require('./routes/product_routes');
 const stockRoutes = require('./routes/stock_routes');
 const supplierRoutes = require('./routes/supplier_routes');
 const dashboardRoutes = require('./routes/dashboard_routes');
