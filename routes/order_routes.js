@@ -19,6 +19,6 @@ router.get('/', getOrders);
 router.get('/counts', getOrdersCount);
 router.get('/:id', getOrderById);
 router.post('/', createOrder);
-router.put('/:id/status', updateOrderStatus);
+router.put('/:id/status',protect, updateOrderStatus);
 
 module.exports = router;

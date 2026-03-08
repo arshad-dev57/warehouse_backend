@@ -48,13 +48,11 @@ const getCategories = async (req, res) => {
 // @access  Private (Admin/Manager)
 const createCategory = async (req, res) => {
   try {
-    const { name, description, color, icon } = req.body;
+    const { name, description } = req.body;
 
     const category = await Category.create({
       name,
       description,
-      color,
-      icon,
       createdBy: req.user.id
     });
 
@@ -66,7 +64,7 @@ const createCategory = async (req, res) => {
 
   } catch (error) {
     console.error('Create category error:', error);
-    
+
     if (error.code === 11000) {
       return res.status(400).json({
         success: false,
@@ -80,7 +78,6 @@ const createCategory = async (req, res) => {
     });
   }
 };
-
 module.exports = {
   getCategories,
   createCategory

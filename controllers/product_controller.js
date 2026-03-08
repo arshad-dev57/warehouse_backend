@@ -2,8 +2,8 @@
 
 const Product = require('../models/Product');
 const Category = require('../models/Category');
-const Cloudinary = require('../config/cloudinary');
-const mongoose = require('mongoose'); // 👈 YEH IMPORT KARO
+const cloudinary = require('../config/cloudinary');
+const mongoose = require('mongoose'); 
 
 const getProducts = async (req, res) => {
   try {
@@ -74,9 +74,6 @@ const getProducts = async (req, res) => {
   }
 };
 
-// @desc    Get single product
-// @route   GET /api/products/:id
-// @access  Private
 const getProductById = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id)
@@ -103,19 +100,20 @@ const getProductById = async (req, res) => {
     });
   }
 };
-// controllers/product_controller.js
 
 const createProduct = async (req, res) => {
-    console.log("===== CREATE PRODUCT API HIT =====");
-    console.log("Body:", req.body);
-    console.log("Files:", req.files);
-    console.log("User:", req.user?.id);
+  console.log("===== CREATE PRODUCT API HIT =====");
+  console.log("Body:", req.body);
+  console.log("Files:", req.files);
+  console.log("User:", req.user);
 
   try {
+    console.log("STEP 1: Destructuring body data");
+
     const {
       name,
       sku,
-      barcode,
+      barcodeNumber,
       categoryId,
       sellingPrice,
       costPrice,
@@ -127,51 +125,146 @@ const createProduct = async (req, res) => {
       expiryDate
     } = req.body;
 
+    console.log("STEP 2: Data received", {
+      name,
+      sku,
+      barcodeNumber,
+      categoryId,
+      sellingPrice,
+      costPrice,
+      currentStock
+    });
+
     // Validation
+    console.log("STEP 3: Checking required fields");
+
     if (!name || !sku || !categoryId || !sellingPrice || !costPrice || !currentStock) {
+      console.log("VALIDATION FAILED: Missing required fields");
       return res.status(400).json({
         success: false,
         message: 'Please provide all required fields'
       });
     }
 
-    // ✅ FIX: Check if categoryId is valid ObjectId
+    console.log("STEP 4: Checking categoryId format");
+
     if (!mongoose.Types.ObjectId.isValid(categoryId)) {
+      console.log("INVALID CATEGORY ID FORMAT:", categoryId);
       return res.status(400).json({
         success: false,
         message: 'Invalid category ID format'
       });
     }
 
-    // Check if SKU exists
+    // Check existing product
+    console.log("STEP 5: Checking existing product with SKU:", sku);
+
     const existingProduct = await Product.findOne({ sku });
+
+    console.log("Existing product result:", existingProduct);
+
     if (existingProduct) {
+      console.log("DUPLICATE SKU FOUND");
       return res.status(400).json({
         success: false,
         message: 'Product with this SKU already exists'
       });
     }
 
-    // Get category name
+    // 🔴 NEW: Check for existing BARCODE NUMBER
+    if (barcodeNumber) {
+      console.log("STEP 5.1: Checking existing product with Barcode number:", barcodeNumber);
+      
+      const existingProductByBarcode = await Product.findOne({ 
+        'barcode.number': barcodeNumber 
+      });
+      
+      if (existingProductByBarcode) {
+        console.log("DUPLICATE BARCODE NUMBER FOUND for product:", existingProductByBarcode.name);
+         return res.status(400).json({
+        success: false,
+        message: 'Product with this barcode already exists'
+      });
+        // Clean up uploaded images if any      
+        if (req.files) {
+          if (req.files['images']) {
+            for (const file of req.files['images']) {
+              await cloudinary.uploader.destroy(file.filename);
+            }
+          }
+          if (req.files['barcodeImage']) {
+            await cloudinary.uploader.destroy(req.files['barcodeImage'][0].filename);
+          }
+        }
+        
+        // 🔴 SIMPLE MESSAGE - No extra data
+        return res.status(400).json({
+          success: false,
+          message: 'Product with this barcode already exists'  // Sirf yeh message
+        });
+      }
+      
+      console.log("✅ Barcode number is unique");
+    }
+
+    // Get category
+    console.log("STEP 6: Fetching category");
+
     const category = await Category.findById(categoryId);
+
+    console.log("Category result:", category);
+
     if (!category) {
+      console.log("CATEGORY NOT FOUND");
       return res.status(400).json({
         success: false,
         message: 'Category not found'
       });
     }
 
-    // Get image URLs from uploaded files
+    // Product images
+    console.log("STEP 7: Handling product images");
+
     let imageUrls = [];
-    if (req.files && req.files.length > 0) {
-      imageUrls = req.files.map(file => file.path); // Cloudinary URLs
+
+    if (req.files && req.files['images'] && req.files['images'].length > 0) {
+      console.log("PRODUCT IMAGES RECEIVED:", req.files['images'].length);
+      imageUrls = req.files['images'].map(file => {
+        console.log("Uploaded product image:", file.path);
+        return file.path;
+      });
+    } else {
+      console.log("NO PRODUCT IMAGES RECEIVED");
     }
 
+    // Barcode image
+    console.log("STEP 8: Handling barcode data");
+
+    let barcodeData = {};
+
+    if (req.files && req.files['barcodeImage'] && req.files['barcodeImage'].length > 0) {
+      const barcodeImageFile = req.files['barcodeImage'][0];
+      console.log("✅ BARCODE IMAGE RECEIVED:", barcodeImageFile.path);
+      barcodeData.image = barcodeImageFile.path;
+    } else {
+      console.log("❌ NO BARCODE IMAGE RECEIVED IN FILES");
+      console.log("req.files keys:", Object.keys(req.files || {}));
+    }
+
+    if (barcodeNumber) {
+      console.log("✅ Barcode number received:", barcodeNumber);
+      barcodeData.number = barcodeNumber;
+    }
+
+    console.log("✅ Final barcode object:", barcodeData);
+
     // Create product
+    console.log("STEP 9: Creating product in database");
+
     const product = await Product.create({
       name,
       sku,
-      barcode,
+      barcode: barcodeData,
       categoryId,
       categoryName: category.name,
       sellingPrice: parseFloat(sellingPrice),
@@ -183,8 +276,12 @@ const createProduct = async (req, res) => {
       imageUrls,
       description,
       expiryDate: expiryDate || null,
-      createdBy: req.user.id
+      createdBy: req.user?.id
     });
+
+    console.log("STEP 10: PRODUCT CREATED SUCCESSFULLY");
+    console.log("Product ID:", product._id);
+    console.log("Saved barcode data:", product.barcode);
 
     res.status(201).json({
       success: true,
@@ -193,27 +290,45 @@ const createProduct = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Create product error:', error);
-    
-    // Clean up uploaded images if product creation fails
-    if (req.files && req.files.length > 0 && typeof cloudinary !== 'undefined') {
-      for (const file of req.files) {
+    console.error("===== CREATE PRODUCT ERROR =====");
+    console.error("Error message:", error.message);
+    console.error("Full error:", error);
+
+    // Clean up uploaded images
+    if (req.files) {
+      console.log("STEP ERROR: Cleaning uploaded images");
+      
+      if (req.files['images']) {
+        for (const file of req.files['images']) {
+          try {
+            console.log("Deleting product image:", file.filename);
+            await cloudinary.uploader.destroy(file.filename);
+          } catch (cloudError) {
+            console.error("Cloudinary cleanup error:", cloudError);
+          }
+        }
+      }
+      
+      if (req.files['barcodeImage']) {
         try {
-          await cloudinary.uploader.destroy(file.filename);
+          console.log("Deleting barcode image:", req.files['barcodeImage'][0].filename);
+          await cloudinary.uploader.destroy(req.files['barcodeImage'][0].filename);
         } catch (cloudError) {
-          console.error('Cloudinary cleanup error:', cloudError);
+          console.error("Cloudinary cleanup error:", cloudError);
         }
       }
     }
 
     if (error.code === 11000) {
+      console.log("DUPLICATE KEY ERROR:", error.keyValue);
       return res.status(400).json({
         success: false,
-        message: 'Duplicate SKU or barcode'
+        message: 'Duplicate SKU or barcode number'
       });
     }
 
     if (error.name === 'ValidationError') {
+      console.log("VALIDATION ERROR");
       const messages = Object.values(error.errors).map(err => err.message);
       return res.status(400).json({
         success: false,
@@ -222,6 +337,7 @@ const createProduct = async (req, res) => {
     }
 
     if (error.name === 'CastError') {
+      console.log("CAST ERROR");
       return res.status(400).json({
         success: false,
         message: 'Invalid ID format'
@@ -233,11 +349,9 @@ const createProduct = async (req, res) => {
       message: 'Server error'
     });
   }
-};
-// @desc    Update product
-// @route   PUT /api/products/:id
-// @access  Private (Admin/Manager)
-const updateProduct = async (req, res) => {
+}
+
+;const updateProduct = async (req, res) => {
   try {
     let product = await Product.findById(req.params.id);
 
@@ -248,7 +362,6 @@ const updateProduct = async (req, res) => {
       });
     }
 
-    // Check SKU uniqueness if updating
     if (req.body.sku && req.body.sku !== product.sku) {
       const existingProduct = await Product.findOne({ sku: req.body.sku });
       if (existingProduct) {
@@ -257,9 +370,7 @@ const updateProduct = async (req, res) => {
           message: 'Product with this SKU already exists'
         });
       }
-    }
-
-    // Update category name if category changes
+    } 
     if (req.body.categoryId && req.body.categoryId !== product.categoryId.toString()) {
       const category = await Category.findById(req.body.categoryId);
       if (category) {
@@ -321,10 +432,7 @@ const updateProduct = async (req, res) => {
     });
   }
 };
-
-// @desc    Delete product
-// @route   DELETE /api/products/:id
-// @access  Private (Admin only)
+ 
 const deleteProduct = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
@@ -336,7 +444,6 @@ const deleteProduct = async (req, res) => {
       });
     }
 
-    // Delete images from Cloudinary
     if (product.imageUrls && product.imageUrls.length > 0) {
       for (const imageUrl of product.imageUrls) {
         const publicId = imageUrl.split('/').pop().split('.')[0];
@@ -345,7 +452,6 @@ const deleteProduct = async (req, res) => {
     }
 
     await product.deleteOne();
-
     res.status(200).json({
       success: true,
       message: 'Product deleted successfully'
@@ -359,10 +465,6 @@ const deleteProduct = async (req, res) => {
     });
   }
 };
-
-// @desc    Get low stock products
-// @route   GET /api/products/low-stock
-// @access  Private
 const getLowStockProducts = async (req, res) => {
   try {
     const products = await Product.find({
@@ -384,7 +486,124 @@ const getLowStockProducts = async (req, res) => {
   }
 };
 
+const searchProducts = async (req, res) => {
+  try {
+    const { q, page = 1, limit = 20 } = req.query;
+
+    console.log("===== PRODUCT SEARCH API =====");
+    console.log("Query:", q);
+    console.log("Page:", page);
+    console.log("Limit:", limit);
+
+    if (!q) {
+      return res.status(400).json({
+        success: false,
+        message: 'Search query is required'
+      });
+    }
+    const filter = {
+      $or: [
+        { name: { $regex: q, $options: 'i' } },
+        { sku: { $regex: q, $options: 'i' } },
+        { barcode: { $regex: q, $options: 'i' } }
+      ]
+    };
+    const skip = (page - 1) * limit;
+    const products = await Product.find(filter)
+      .populate('categoryId', 'name')
+      .sort({ name: 1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await Product.countDocuments(filter);
+
+    res.status(200).json({
+      success: true,
+      count: products.length,
+      data: products,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+
+  } catch (error) {
+    console.error('Product search error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+};
+// @desc    Get product by barcode
+// @route   GET /api/products/barcode/:barcode
+// @access  Private
+const getProductByBarcode = async (req, res) => {
+  try {
+    const { barcode } = req.params;
+    
+    console.log("🔍 Searching product by barcode:", barcode);
+    
+    // Find product where barcode.number matches
+    const product = await Product.findOne({ 
+      'barcode.number': barcode 
+    }).populate('categoryId', 'name');
+    
+    if (!product) {
+      console.log("❌ Product not found for barcode:", barcode);
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found with this barcode'
+      });
+    }
+    
+    console.log("✅ Product found:", product.name);
+    
+    res.status(200).json({
+      success: true,
+      data: product
+    });
+    
+  } catch (error) {
+    console.error('Get product by barcode error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+};
+
+// @desc    Check if barcode exists
+// @route   GET /api/products/check-barcode/:barcode
+// @access  Private
+const checkBarcodeExists = async (req, res) => {
+  try {
+    const { barcode } = req.params;
+    
+    const product = await Product.findOne({ 
+      'barcode.number': barcode 
+    });
+    
+    res.status(200).json({
+      success: true,
+      exists: !!product
+    });
+    
+  } catch (error) {
+    console.error('Check barcode error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+};
+
 module.exports = {
+  checkBarcodeExists,
+  getProductByBarcode,
+  searchProducts,
   getProducts,
   getProductById,
   createProduct,

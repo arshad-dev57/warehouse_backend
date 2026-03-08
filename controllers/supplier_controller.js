@@ -2,14 +2,10 @@
 
 const Supplier = require('../models/Supplier');
 
-// @desc    Get all suppliers
-// @route   GET /api/suppliers
-// @access  Private
 const getSuppliers = async (req, res) => {
   try {
     const { search, status, page = 1, limit = 20 } = req.query;
 
-    // Build filter
     const filter = {};
     if (status) {
       filter.status = status;

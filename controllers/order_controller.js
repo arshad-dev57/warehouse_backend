@@ -216,61 +216,61 @@ const createOrder = async (req, res) => {
     });
   }
 };
-
-// @desc    Update order status
-// @route   PUT /api/orders/:id/status
-// @access  Private
 const updateOrderStatus = async (req, res) => {
   try {
+    console.log("===== UPDATE ORDER STATUS CALLED =====");
+    console.log("Request Params:", req.params);
+    console.log("Request Body:", req.body);
+    console.log("Authenticated User:", req.user || "NO USER");
+
     const { status } = req.body;
     const { id } = req.params;
 
-    console.log("===== UPDATE ORDER STATUS =====");
-    console.log("Order ID:", id);
-    console.log("New Status:", status);
+    if (!status) {
+      console.warn("No status provided in body");
+      return res.status(400).json({ success: false, message: "Status is required" });
+    }
+
+    if (!req.user) {
+      console.warn("Unauthorized: req.user missing");
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
 
     const order = await Order.findById(id);
 
     if (!order) {
-      return res.status(404).json({
-        success: false,
-        message: 'Order not found'
-      });
+      console.warn("Order not found:", id);
+      return res.status(404).json({ success: false, message: "Order not found" });
     }
 
-    // Update status
+    console.log("Current status:", order.status, "-> New status:", status);
+
     order.status = status;
-    
-    if (status === 'completed') {
-      order.completedAt = new Date();
-    }
+    if (status === "completed") order.completedAt = new Date();
 
     await order.save();
+    console.log("Order updated:", order);
 
-    // Create activity
-    await Activity.create({
+    const activity = await Activity.create({
       user: req.user.id,
       userName: req.user.name,
       action: `updated order status to ${status}`,
       actionType: 'update',
       details: `Order ${order.orderNumber} marked as ${status}`
     });
+    console.log("Activity logged:", activity);
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      message: 'Order status updated successfully',
+      message: "Order status updated successfully",
       data: order
     });
 
   } catch (error) {
-    console.error('Update order status error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
+    console.error("Update order status error:", error);
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 };
-
 // @desc    Get orders count by status
 // @route   GET /api/orders/counts
 // @access  Private

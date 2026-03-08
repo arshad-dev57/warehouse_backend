@@ -5,6 +5,9 @@ const router = express.Router();
 const { protect, authorize } = require('../middleware/auth_middleware');
 const { upload } = require('../config/cloudinary');
 const {
+  checkBarcodeExists,
+  getProductByBarcode,
+  searchProducts,
   getProducts,
   getProductById,
   createProduct,
@@ -12,23 +15,24 @@ const {
   deleteProduct,
   getLowStockProducts
 } = require('../controllers/product_controller');
-
-// All routes are protected
 router.use(protect);
-
-// Public routes
+router.get('/barcode/:barcode', getProductByBarcode);
+router.get('/check-barcode/:barcode', checkBarcodeExists);
+router.get('/search', searchProducts); 
 router.get('/', getProducts);
 router.get('/low-stock', getLowStockProducts);
 router.get('/:id', getProductById);
-
-// Admin/Manager routes with image upload
 router.post(
   '/',
   authorize('admin', 'manager'),
-  upload.array('images', 5), // Max 5 images
+  upload.fields([
+    { name: 'images', maxCount: 5 },
+    { name: 'barcodeImage', maxCount: 1 }
+  ]),
   createProduct
 );
 
+ 
 router.put(
   '/:id',
   authorize('admin', 'manager'),

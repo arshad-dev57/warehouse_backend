@@ -1,5 +1,3 @@
-// models/Category.js
-
 const mongoose = require('mongoose');
 
 const CategorySchema = new mongoose.Schema({
@@ -13,14 +11,6 @@ const CategorySchema = new mongoose.Schema({
   description: {
     type: String,
     maxlength: 200
-  },
-  color: {
-    type: String,
-    default: '#2196F3'
-  },
-  icon: {
-    type: String,
-    default: 'inventory'
   },
   isActive: {
     type: Boolean,

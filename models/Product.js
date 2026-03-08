@@ -18,9 +18,20 @@ const ProductSchema = new mongoose.Schema({
     trim: true
   },
   barcode: {
-    type: String,
-    sparse: true,
-    trim: true
+    number: {  // barcode number
+      type: String,
+      sparse: true,
+      trim: true
+    },
+    image: {   // barcode image URL
+      type: String,
+      validate: {
+        validator: function(v) {
+          return !v || /^https?:\/\/.+/.test(v); // URL validation
+        },
+        message: 'Invalid barcode image URL'
+      }
+    }
   },
   categoryId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -70,11 +81,11 @@ const ProductSchema = new mongoose.Schema({
     default: 'A-1-B1',
     match: [/^[A-Z]-\d+-[A-Z]\d+$/, 'Location must be in format A-1-B1']
   },
-   imageUrls: [{
+  imageUrls: [{
     type: String,
     validate: {
       validator: function(v) {
-        return /^https?:\/\/.+/.test(v); // URL validation
+        return /^https?:\/\/.+/.test(v);
       },
       message: 'Invalid image URL'
     }
@@ -110,7 +121,6 @@ ProductSchema.virtual('profitMargin').get(function() {
   return ((this.sellingPrice - this.costPrice) / this.costPrice * 100).toFixed(1);
 });
 
-// Virtual for stock status
 ProductSchema.virtual('stockStatus').get(function() {
   if (this.currentStock <= 0) return 'out_of_stock';
   if (this.currentStock <= this.minimumStock) return 'low_stock';
@@ -119,6 +129,6 @@ ProductSchema.virtual('stockStatus').get(function() {
 });
 
 // Index for search
-ProductSchema.index({ name: 'text', sku: 'text', barcode: 'text' });
+ProductSchema.index({ name: 'text', sku: 'text', 'barcode.number': 'text' });
 
-module.exports = mongoose.model('Product', ProductSchema);
+module.exports = mongoose.model('Product', ProductSchema);  

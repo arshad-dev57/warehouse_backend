@@ -24,6 +24,7 @@ const supplierRoutes  = require('./routes/supplier_routes');
 const dashboardRoutes = require('./routes/dashboard_routes');
 const orderRoutes     = require('./routes/order_routes');
 const staffRoutes     = require('./routes/staff_routes');
+const inventoryRoutes = require('./routes/inventory_routes');
 
 // Health check
 app.get('/', (req, res) => {
@@ -39,6 +40,7 @@ app.use('/api/suppliers',       supplierRoutes);
 app.use('/api/admin/dashboard', dashboardRoutes);
 app.use('/api/orders',          orderRoutes);
 app.use('/api/staff',           staffRoutes);
+app.use('/api/inventory',       inventoryRoutes);
 
 // 404 handler — Express v5 fix
 app.use((req, res) => {
