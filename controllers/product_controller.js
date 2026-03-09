@@ -257,8 +257,6 @@ const createProduct = async (req, res) => {
     }
 
     console.log("✅ Final barcode object:", barcodeData);
-
-    // Create product
     console.log("STEP 9: Creating product in database");
 
     const product = await Product.create({

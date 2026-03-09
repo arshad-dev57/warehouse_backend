@@ -38,6 +38,17 @@ const getDashboardMetrics = async (req, res) => {
     });
     console.log("⚠️ Low Stock Count:", lowStockCount);
     
+    // 🔥 NEW: Get out of stock count
+    const outOfStockCount = await Product.countDocuments({ currentStock: 0 });
+    console.log("❌ Out of Stock Count:", outOfStockCount);
+    
+    // 🔥 NEW: Get overstock count (currentStock >= maximumStock * 1.2)
+    const productsWithMax = await Product.find({}, 'currentStock maximumStock');
+    const overstockCount = productsWithMax.filter(p => 
+      p.maximumStock > 0 && p.currentStock >= p.maximumStock * 1.2
+    ).length;
+    console.log("📦 Overstock Count:", overstockCount);
+    
     // Get expiring soon count (expiryDate within 30 days)
     const thirtyDaysFromNow = new Date();
     thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
@@ -74,6 +85,15 @@ const getDashboardMetrics = async (req, res) => {
     const pendingOrders = await Order.countDocuments({ status: 'pending' });
     console.log("⏳ Pending Orders:", pendingOrders);
     
+    // 🔥 NEW: Calculate today's revenue
+    const todayOrders = await Order.find({
+      status: 'completed',
+      createdAt: { $gte: today, $lt: tomorrow }
+    }, 'total');
+    
+    const todayRevenue = todayOrders.reduce((sum, order) => sum + order.total, 0);
+    console.log("💰 Today Revenue:", todayRevenue);
+    
     const responseData = {
       totalProducts,
       totalStockValue,
@@ -81,7 +101,10 @@ const getDashboardMetrics = async (req, res) => {
       expiringCount,
       todayStockIn,
       todayStockOut,
-      pendingOrders
+      pendingOrders,
+      outOfStockCount,    // 🔥 NEW
+      overstockCount,     // 🔥 NEW
+      todayRevenue        // 🔥 NEW
     };
     
     console.log("✅ Response Data:", JSON.stringify(responseData, null, 2));

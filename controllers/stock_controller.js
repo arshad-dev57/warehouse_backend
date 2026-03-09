@@ -257,8 +257,109 @@ const getStockHistory = async (req, res) => {
   }
 };
 
+
+const getAllStockHistory = async (req, res) => {
+  try {
+    const { page = 1, limit = 100 } = req.query;
+
+    console.log("===== GET ALL STOCK HISTORY =====");
+    console.log("Page:", page);
+    console.log("Limit:", limit);
+
+    // Pagination
+    const skip = (page - 1) * limit;
+
+    // Get all stock movements (no productId filter)
+    const movements = await StockMovement.find()
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .populate('createdBy', 'name email');
+
+    const total = await StockMovement.countDocuments();
+
+    res.status(200).json({
+      success: true,
+      data: movements,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+
+  } catch (error) {
+    console.error('Get all stock history error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+};
+
+// 🔥 NEW: Get today's movements
+// @route   GET /api/stock/movements/today
+// @access  Private
+const getTodayMovements = async (req, res) => {
+  try {
+    const { type } = req.query; // 'all', 'in', 'out'
+
+    console.log("===== GET TODAY'S MOVEMENTS =====");
+    console.log("Type:", type);
+
+    // Get today's date range
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    // Build filter
+    const filter = {
+      createdAt: { $gte: today, $lt: tomorrow }
+    };
+    
+    if (type && type !== 'all') {
+      filter.type = type === 'in' ? 'stock_in' : 'stock_out';
+    }
+
+    const movements = await StockMovement.find(filter)
+      .sort({ createdAt: -1 })
+      .populate('createdBy', 'name email');
+
+    const totalIn = await StockMovement.countDocuments({
+      ...filter,
+      type: 'stock_in'
+    });
+    
+    const totalOut = await StockMovement.countDocuments({
+      ...filter,
+      type: 'stock_out'
+    });
+
+    res.status(200).json({
+      success: true,
+      data: movements,
+      summary: {
+        totalIn,
+        totalOut,
+        total: movements.length
+      }
+    });
+
+  } catch (error) {
+    console.error('Get today movements error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+};
+
 module.exports = {
-  addStock,
+ addStock,
   removeStock,
-  getStockHistory
+  getStockHistory,
+  getAllStockHistory,  // 👈 Add this
+  getTodayMovements 
 };
